@@ -18,8 +18,8 @@ android {
         minSdk 26
         targetSdk 29
         // Chromecast with Google TV build (button for the options, Home double press, Google TV Home guard).
-        versionCode 33
-        versionName '0.6.0-gtv'
+        versionCode 34
+        versionName '1.0-beta'
     }
 
     signingConfigs {
