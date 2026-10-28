@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">New Home Google Chromecast</string>
+    <string name="inputs">Entradas</string>
+    <string name="wifi">Wi-Fi</string>
+    <string name="settings">Ajustes</string>
+    <string name="home_options">Opciones</string>
+    <string name="quick_panel_label">NHGC: ajustes rápidos y pantalla de inicio</string>
+    <string name="quick_panel_description">Pulsa Inicio dos veces para abrir el panel de ajustes rápidos del sistema. Mantiene este launcher como pantalla de inicio cuando Google TV abre la suya.</string>
+    <string name="choose_input">Entradas</string>
+    <string name="connected">Conectado</string>
+    <string name="standby">En espera</string>
+    <string name="not_connected">Sin dispositivo</string>
+    <string name="live_tv">TV en vivo</string>
+    <string name="no_inputs">No se encontraron entradas</string>
+    <string name="good_morning">Buenos días</string>
+    <string name="good_afternoon">Buenas tardes</string>
+    <string name="good_evening">Buenas noches</string>
+    <string name="good_night">Buenas noches</string>
+    <string name="ethernet">Cable</string>
+    <string name="offline">Sin conexión</string>
+    <string name="not_available">No disponible en esta TV</string>
+    <string name="cant_open">No se pudo abrir %1$s</string>
+    <!-- Corto a proposito: el dia completo en espanol invade el boton Entradas. -->
+    <string name="date_format">EEE, d \'de\' MMM</string>
+    <string name="dream_name">Reloj</string>
+    <string name="voice">Voz</string>
+    <string name="menu_move_left">Mover a la izquierda</string>
+    <string name="menu_move_right">Mover a la derecha</string>
+    <string name="menu_unpin">Quitar del dock</string>
+    <string name="menu_pin">Fijar en el dock</string>
+    <string name="menu_hide">Ocultar</string>
+    <string name="menu_info">Información de la app</string>
+    <string name="dock_full">El dock está lleno: quita una app primero</string>
+    <string name="opt_light_on">Modo ultraligero: activado</string>
+    <string name="opt_light_off">Modo ultraligero: desactivado</string>
+    <string name="opt_weather">Clima: %1$s</string>
+    <string name="opt_weather_off">Clima: desactivado</string>
+    <string name="opt_weather_disable">Desactivar el clima</string>
+    <string name="opt_unhide">Mostrar apps ocultas (%1$d)</string>
+    <string name="opt_reset_dock">Restaurar el dock predeterminado</string>
+    <string name="weather_title">Ciudad para el clima</string>
+    <string name="weather_hint">Ej.: Madrid</string>
+    <string name="weather_not_found">Ciudad no encontrada</string>
+    <string name="weather_failed">No se pudo obtener el clima</string>
+    <string name="weather_set">Clima: %1$s</string>
+    <string name="ok">Aceptar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="default_name">Eddy</string>
+    <string name="greet_morning">Buenos días, %1$s.</string>
+    <string name="greet_afternoon">Buenas tardes, %1$s.</string>
+    <string name="greet_night">Buenas noches, %1$s.</string>
+    <string name="greet_morning_all">Buenos días a todos.</string>
+    <string name="greet_afternoon_all">Buenas tardes a todos.</string>
+    <string name="greet_night_all">Buenas noches a todos.</string>
+    <string name="opt_greet">Saludar a: %1$s</string>
+    <string name="greet_everyone">todos</string>
+    <string name="greet_need_name">Escribe primero tu nombre (Opciones &gt; Tu nombre).</string>
+    <string name="sub_morning">Todo listo para empezar el día.</string>
+    <string name="sub_afternoon">Todo listo para tu tarde.</string>
+    <string name="sub_night">Hora de relajarse.</string>
+    <string name="opt_name">Tu nombre: %1$s</string>
+    <string name="opt_message">Mensaje: %1$s</string>
+    <string name="opt_message_auto">automático</string>
+    <string name="opt_accent">Color de acento: %1$s</string>
+    <string name="opt_motion_on">Movimiento suave: activado</string>
+    <string name="opt_motion_off">Movimiento suave: desactivado</string>
+    <string name="opt_profiles">Perfiles de la familia: %1$d</string>
+    <string name="opt_columns">Columnas: %1$d</string>
+    <string name="opt_wallpaper_on">Fondo de pantalla: Aurora</string>
+    <string name="opt_wallpaper_off">Fondo de pantalla: negro</string>
+    <string name="wallpaper_light">El modo ultraligero siempre usa el fondo negro.</string>
+    <string name="columns_title">Columnas</string>
+    <string name="profiles_title">Perfiles de la familia</string>
+    <string name="profile_save">Guardar el perfil actual</string>
+    <string name="profile_name_title">Nombre del perfil</string>
+    <string name="profile_saved">Perfil %1$s guardado</string>
+    <string name="profile_load">Cargar</string>
+    <string name="profile_delete">Borrar</string>
+    <string name="profile_deleted">Perfil %1$s borrado</string>
+    <string name="profile_empty">Aún no hay perfiles. Guarda el aspecto actual para crear el primero.</string>
+    <string name="name_title">Tu nombre</string>
+    <string name="message_title">Mensaje debajo del saludo</string>
+    <string name="message_hint">Déjalo vacío para usar el automático</string>
+    <string name="rec_tvlauncher">Reactivar la pantalla de inicio original</string>
+    <string name="rec_settings">Abrir Ajustes</string>
+    <string name="rec_reset">Restaurar los valores del Inicio</string>
+    <string name="rec_close">Cerrar</string>
+    <string-array name="accent_names">
+        <item>Azul</item>
+        <item>Verde</item>
+        <item>Naranja</item>
+        <item>Rosa</item>
+        <item>Morado</item>
+        <item>Blanco</item>
+    </string-array>
+    <string name="remap_label">NHGC: botones del control</string>
+    <string name="remap_description">Cuando el botón Globoplay del control abre Globoplay, cambia a otra app. Desde la pantalla de inicio Globoplay abre normalmente. No lee la pantalla ni lo que escribes; solo detecta cuando se abre Globoplay.</string>
+    <string name="opt_remap_on">Botón Globoplay: abre %1$s</string>
+    <string name="opt_remap_off">Botón Globoplay: predeterminado (Globoplay)</string>
+    <string name="opt_remap_service">Botón Globoplay: activar el reasignador</string>
+    <string name="wx_clear">DESPEJADO</string>
+    <string name="wx_few_clouds">POCAS NUBES</string>
+    <string name="wx_overcast">NUBLADO</string>
+    <string name="wx_fog">NIEBLA</string>
+    <string name="wx_drizzle">LLOVIZNA</string>
+    <string name="wx_rain">LLUVIA</string>
+    <string name="wx_snow">NIEVE</string>
+    <string name="wx_showers">CHUBASCOS</string>
+    <string name="wx_thunderstorm">TORMENTAS</string>
+
+    <!-- Input cards: HDMI/AV ports as tiles on Home. -->
+    <string name="input_cards">Tarjetas de entrada</string>
+    <string name="input_card_name">Nombre: %1$s</string>
+    <string name="input_card_name_default">Igual que la entrada</string>
+    <string name="input_card_icon">Icono: %1$s</string>
+    <string name="input_card_icon_title">Icono</string>
+    <string name="input_card_shown">Mostrar en Home: %1$s</string>
+    <string name="card_name_title">Nombre de la tarjeta</string>
+    <string name="icon_game">Juego</string>
+    <string name="icon_movie">Película</string>
+    <string name="icon_music">Música</string>
+    <string name="icon_computer">Ordenador</string>
+    <string name="on">Activado</string>
+    <string name="off">Desactivado</string>
+
+    <!-- Noticias (RSS). -->
+    <string name="news_settings_title">Noticias</string>
+    <string name="news_enabled">Fila de noticias: %1$s</string>
+    <string name="news_full">Noticias a pantalla completa</string>
+    <string name="news_idle_enabled">Salvapantallas inactivo: %1$s</string>
+    <string name="news_empty">Aún no hay noticias cargadas</string>
+    <string name="news_custom">Feed %1$d: %2$s</string>
+    <string name="news_custom_none">Ninguno</string>
+    <string name="news_custom_title">Dirección del feed</string>
+    <string name="news_custom_hint">https://ejemplo.com/feed/</string>
+    <string name="news_cinema">Foto de fondo: %1$s</string>
+    <string name="news_rotate">Cambiar titular inactivo: %1$s</string>
+    <string name="news_refresh">Actualizar noticias cada: %1$d min</string>
+    <string name="news_image_age">Guardar las fotos: %1$d h</string>
+    <string name="news_meta">%1$s · %2$s</string>
+    <string name="news_clear">Borrar noticias ahora</string>
+    <string name="news_open_hint">Pulsa OK para abrir</string>
+    <!-- Experience presets and wallpaper (missing in Spanish upstream: these rows showed in English). -->
+    <string name="opt_experience">Experiencia: %1$s</string>
+    <string name="experience_title">Experiencia</string>
+    <string name="experience_performance">Rendimiento (predeterminado): fondo negro, foco instantáneo</string>
+    <string name="experience_balanced">Equilibrado: foco suave, fondo negro</string>
+    <string name="experience_visual" formatted="false">Visual: foco suave + Aurora\nMedido en la v0.5.6: +9 MB y 0,19% → 6,89% de fotogramas retrasados</string>
+    <string name="experience_performance_short">Rendimiento</string>
+    <string name="experience_balanced_short">Equilibrado</string>
+    <string name="experience_visual_short">Visual</string>
+    <string name="experience_custom_short">Personalizado</string>
+    <string name="wallpaper_title">Fondo Aurora</string>
+    <string name="wallpaper_cost" formatted="false">Medido en la TV de referencia con la v0.5.6: unos 9 MB más de memoria, y los fotogramas retrasados pasaron del 0,19% (negro) al 6,89% (Aurora) en la prueba de navegación. La respuesta mediana de las teclas se mantuvo en 17 ms. Puedes volver al negro cuando quieras.</string>
+    <string name="wallpaper_enable">Activar fondo</string>
+    <string name="wallpaper_cost_unmeasured">Este fondo con imagen no se ha medido en esta TV. Si notas más tirones, vuelve al negro.</string>
+    <string name="opt_wallpaper">Fondo: %1$s</string>
+    <string name="input_key_service_description">Abre el menú Entradas al pulsar el botón Entrada/Fuente del mando. Cada mando envía un código distinto para ese botón; este servicio los capta todos. Desactivado por defecto.</string>    <string name="greet_morning_short">Buenos días.</string>
+    <string name="greet_afternoon_short">Buenas tardes.</string>
+    <string name="greet_night_short">Buenas noches.</string>
+    <string name="home_lost_title">Google TV ha recuperado la pantalla de inicio</string>
+    <string name="home_lost_message">El botón Inicio vuelve a abrir Google TV. ¿Quieres que este launcher vuelva a ser la pantalla de inicio?</string>
+    <string name="home_lost_fix">Restablecer</string>
+    <string name="home_lost_later">Ahora no</string>
+    <string name="home_lost_adb">Este dispositivo no permite elegir aquí la pantalla de inicio. Desde un ordenador, ejecuta:\nadb shell cmd role add-role-holder --user 0 android.app.role.HOME %1$s</string>
+    <string name="home_restored">Listo: este launcher vuelve a ser la pantalla de inicio.</string>
+    <string name="service_off_title">Servicio de Inicio desactivado</string>
+    <string name="service_off_message">El servicio de accesibilidad «%1$s» está desactivado. Sin él, la doble pulsación de Inicio abre los Ajustes en lugar del panel de ajustes rápidos, y no se vigila la pantalla de inicio. Actívalo en Ajustes &gt; Sistema &gt; Accesibilidad, o vuelve a ejecutar instalar.ps1.</string>
+    <string name="service_off_open">Abrir Accesibilidad</string>
+</resources>
