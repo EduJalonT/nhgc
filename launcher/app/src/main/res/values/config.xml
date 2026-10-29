@@ -15,16 +15,19 @@
         <item>com.spotify.tv.android</item>
     </string-array>
 
-    <!-- Apps never shown as tiles: Settings has its own button, and Google TV Home stays installed
-         only as the recovery home screen. -->
+    <!-- Apps never shown as tiles: Settings has its own button, Google TV Home stays installed only as
+         the recovery home screen, and a TV's Live TV app is in the Inputs menu. -->
     <string-array name="hidden_apps">
         <item>com.android.tv.settings</item>
         <item>com.google.android.apps.tv.launcherx</item>
+        <item>com.tcl.tv</item>
     </string-array>
 
-    <!-- The TV's Live TV / tuner app, offered in the Inputs menu. None on a Chromecast, which has no
-         tuner. -->
-    <string name="live_tv_package" translatable="false"></string>
+    <!-- The TV's Live TV / tuner app (HDMI, AV and antenna), offered in the Inputs menu: the first one
+         installed. None on a Chromecast, which has no tuner; com.tcl.tv on TCL Android TV sets. -->
+    <string-array name="live_tv_packages" translatable="false">
+        <item>com.tcl.tv</item>
+    </string-array>
 
     <!-- TVs with no TvInputManager have no HDMI list to read, but their own source-selection panel
          still switches inputs (some Android TV 9 sets). When nothing could be listed, the Inputs menu

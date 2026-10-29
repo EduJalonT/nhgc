@@ -1,6 +1,7 @@
 package com.edujalont.tvhome;
 
 import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.ActivityOptions;
 import android.app.role.RoleManager;
 import android.content.Context;
@@ -35,6 +36,8 @@ import java.util.Set;
  * (`.dashboard.DashboardHandler`), and it and every other window stay untouched, so Google TV Home can
  * stay enabled and keep serving that panel.</li>
  * </ul>
+ * On a plain Android TV (no Google TV Home, see isGoogleTv) the service does neither: it drops its key
+ * filter and window events as soon as it is bound, and Home is left to the system's default home app.
  * Window changes of Google TV Home and key events (res/xml/quick_panel_service.xml); every key but Home
  * is handed straight back untouched; no window content. Opt-in: only bound once enabled in
  * Accessibility settings or with `settings put secure enabled_accessibility_services` over adb.
@@ -60,17 +63,49 @@ public class QuickPanelService extends AccessibilityService {
         openPanel();
     };
 
-    /** True when the service is enabled and SystemUI accepted the request. */
+    /** Home pressed twice within this window: the quick settings panel instead of a second Home. */
+    static final long DOUBLE_HOME_MS = 500;
+    /** Set on the Home intents sent from here, so MainActivity does not count the double press again. */
+    static final String EXTRA_FROM_KEY = "com.edujalont.tvhome.FROM_HOME_KEY";
+    private long lastHomeUp;
+    private boolean googleTv;
+
+    /** True when the service is enabled on Google TV and SystemUI accepted the request. */
     static boolean openPanel() {
         QuickPanelService s = instance;
-        if (s == null) return false;
+        if (s == null || !s.googleTv) return false;
         return s.performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
                 || s.performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS);
+    }
+
+    /**
+     * Google TV (Chromecast with Google TV and Google TV sets): Google TV Home is installed, enabled or
+     * not. On a plain Android TV (an Android TV 9 set, say) the system honours the default home app and
+     * has no Google TV panel, so both jobs of this service are off there.
+     */
+    static boolean isGoogleTv(Context ctx) {
+        try {
+            ctx.getPackageManager().getApplicationInfo(GOOGLE_TV_HOME, PackageManager.MATCH_DISABLED_COMPONENTS);
+            return true;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
     }
 
     @Override
     protected void onServiceConnected() {
         instance = this;
+        googleTv = isGoogleTv(this);
+        if (!googleTv) {
+            // Plain Android TV: take no keys and no window changes; Home stays the system's.
+            AccessibilityServiceInfo info = getServiceInfo();
+            if (info != null) {
+                info.eventTypes = 0;
+                info.flags &= ~AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS;
+                setServiceInfo(info);
+            }
+            return;
+        }
         refreshHomeActivities();
     }
 
@@ -93,10 +128,14 @@ public class QuickPanelService extends AccessibilityService {
         return super.onUnbind(intent);
     }
 
-    /** Home only; every other key goes on untouched (false) without any work here. */
+    /**
+     * Home only; every other key goes on untouched (false) without any work here. The double press is
+     * told apart here, from the key itself: counted in MainActivity it missed the first press whenever
+     * the launcher was not running yet (Home from inside an app starts it, no new intent).
+     */
     @Override
     protected boolean onKeyEvent(KeyEvent event) {
-        if (event.getKeyCode() != KeyEvent.KEYCODE_HOME) return false;
+        if (!googleTv || event.getKeyCode() != KeyEvent.KEYCODE_HOME) return false;
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             if (event.getRepeatCount() == 0) {
                 homeHeld = false;
@@ -105,25 +144,67 @@ public class QuickPanelService extends AccessibilityService {
             }
         } else if (event.getAction() == KeyEvent.ACTION_UP) {
             handler.removeCallbacks(homeLongPress);
-            if (!homeHeld && !event.isCanceled()) goHome();
+            if (!homeHeld && !event.isCanceled()) {
+                long now = SystemClock.elapsedRealtime();
+                showingContent = false;
+                lastContentAt = 0;
+                if (now - lastHomeUp <= DOUBLE_HOME_MS) {
+                    lastHomeUp = 0;
+                    if (!openPanel()) goHome();
+                } else {
+                    lastHomeUp = now;
+                    goHome();
+                }
+            }
             homeHeld = false;
         }
         return true;
     }
 
+    /**
+     * The Assistant's search results, and every tv.google.com link, open inside Google TV Home's home
+     * activity (through its `.gateway.LauncherDeepLink`). Replacing that made the results vanish the
+     * moment they showed. So after the Assistant or such a link, Google TV Home is left alone until the
+     * viewer is back in this launcher (contentDone) or presses Home.
+     */
+    private static final long CONTENT_MS = 15_000;
+    static final String ASSISTANT = "com.google.android.katniss";
+    private long lastContentAt;
+    private boolean showingContent;
+
+    /** This launcher is in front again: Google TV Home goes back to being replaced. */
+    static void contentDone() {
+        QuickPanelService s = instance;
+        if (s != null) s.showingContent = false;
+    }
+
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
+        if (!googleTv) return;
         if (event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return;
-        if (!GOOGLE_TV_HOME.equals(String.valueOf(event.getPackageName()))) return;
+        String pkg = String.valueOf(event.getPackageName());
         CharSequence cls = event.getClassName();
-        if (cls == null) return;
         long now = SystemClock.elapsedRealtime();
+        if (ASSISTANT.equals(pkg)) {
+            lastContentAt = now;
+            return;
+        }
+        if (!GOOGLE_TV_HOME.equals(pkg) || cls == null) return;
+        if (cls.toString().contains(".gateway.")) {
+            lastContentAt = now;
+            return;
+        }
         if (!stockHomeActivities.contains(cls.toString())) {
             // Unknown window of Google TV Home: usually the panel or a dialog. After an update its home
             // activity may have moved, so look again now and then; still unknown means leave it alone.
             if (now - lastRefresh < REFRESH_MS) return;
             refreshHomeActivities();
             if (!stockHomeActivities.contains(cls.toString())) return;
+        }
+        if (showingContent) return;
+        if (lastContentAt != 0 && now - lastContentAt <= CONTENT_MS) {
+            showingContent = true;              // results or a linked page: leave them on screen
+            return;
         }
         if (now - lastReplace < DUPLICATE_MS) return;
         lastReplace = now;
@@ -139,6 +220,7 @@ public class QuickPanelService extends AccessibilityService {
             startActivity(new Intent(Intent.ACTION_MAIN)
                     .addCategory(Intent.CATEGORY_HOME)
                     .setClass(this, MainActivity.class)
+                    .putExtra(EXTRA_FROM_KEY, true)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION),
                     ActivityOptions.makeCustomAnimation(this, 0, 0).toBundle());
         } catch (Exception ignored) {

@@ -1,6 +1,6 @@
 # Experience presets and measured cost
 
-Status: **2026.10.29.001 (versionCode 261029001)**, adapted for Chromecast with Google TV. The figures below were measured on the Android TV 9 reference TV the launcher was first built for (2 GB of RAM); **none has been measured on a Chromecast yet**. The news row is opt-in and off by default.
+Status: **2026.10.29.004 (versionCode 261029004)**, adapted for Chromecast with Google TV. The figures below were measured on the Android TV 9 reference TV the launcher was first built for (2 GB of RAM); **none has been measured on a Chromecast yet**. The news row is opt-in and off by default.
 
 The project rule is:
 

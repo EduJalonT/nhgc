@@ -143,7 +143,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private static final long[] homePresses = new long[3];
     private static int homePressIndex;
     /** Home pressed twice within this window: the system's quick settings panel (see openQuickSettings). */
-    private static final long DOUBLE_HOME_MS = 500;
+    private static final long DOUBLE_HOME_MS = QuickPanelService.DOUBLE_HOME_MS;
+    /** Google TV (QuickPanelService.isGoogleTv): double press and the home-screen checks are on. */
+    private boolean googleTv;
     private static long lastHomePress;
     /** Benchmark aid: `settings put global eddy_debug_keys 1` logs how long each key took to reach us. */
     private boolean debugKeys;
@@ -199,7 +201,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         density = getResources().getDisplayMetrics().density;
         settingsKeycodes = getResources().getIntArray(R.array.settings_key_keycodes);
         COLUMNS = prefs.columns();
-        liveTvPkg = getString(R.string.live_tv_package).trim();
+        googleTv = QuickPanelService.isGoogleTv(this);
+        liveTvPkg = firstInstalled(getResources().getStringArray(R.array.live_tv_packages));
         sourcePanelService = getString(R.string.source_panel_service).trim();
         sourcePanelAction = getString(R.string.source_panel_action).trim();
 
@@ -407,6 +410,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onResume() {
         super.onResume();
         KeyRemapService.homeResumed();
+        QuickPanelService.contentDone();
         checkGoogleTvSetup();
         glassShown = false;
         glass.setAlpha(0f);
@@ -616,24 +620,30 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         List<String> dock = prefs.dock();
         // Forget dock entries that are not on screen (uninstalled or hidden), so they don't take a slot.
         dock.removeIf(p -> adapter.positionOfPkg(p) < 0);
-        int idx = dock.indexOf(pkg);
+        // The dock row as it is on screen. With fewer apps pinned than slots, the free slots show other
+        // apps; treating those as outside the dock gave them the wrong moves (Left and Right only worked
+        // among the pinned ones). The whole row moves as one: a move pins it as it stands.
+        List<String> row = dockRow();
         List<MenuItem> items = new ArrayList<>();
-        if (idx >= 0) {
-            if (idx > 0) items.add(new MenuItem(R.drawable.ic_left, R.string.menu_move_left, () -> moveInDock(dock, idx, idx - 1)));
-            if (idx < dock.size() - 1) items.add(new MenuItem(R.drawable.ic_right, R.string.menu_move_right, () -> moveInDock(dock, idx, idx + 1)));
-            items.add(new MenuItem(R.drawable.ic_hide, R.string.menu_unpin, () -> {
-                dock.remove(pkg);
-                saveDock(dock);
-            }));
+        if (Grid.inDock(position, COLUMNS)) {
+            int idx = row.indexOf(pkg);
+            if (idx > 0) items.add(new MenuItem(R.drawable.ic_left, R.string.menu_move_left, () -> moveInDock(row, idx, idx - 1)));
+            if (idx >= 0 && idx < row.size() - 1) items.add(new MenuItem(R.drawable.ic_right, R.string.menu_move_right, () -> moveInDock(row, idx, idx + 1)));
+            if (dock.contains(pkg)) {
+                items.add(new MenuItem(R.drawable.ic_hide, R.string.menu_unpin, () -> {
+                    dock.remove(pkg);
+                    saveDock(dock);
+                }));
+            }
         } else {
-            // Apps outside the dock, in screen order: they start on the row after the dock, so a row
-            // up or down is COLUMNS places away.
-            List<String> rest = appsOutsideDock(dock);
+            // Apps outside the dock row, in screen order: they start on the row after the dock, so a row
+            // up or down is COLUMNS places away. A move pins the dock row first, so it stays as it is.
+            List<String> rest = appsOutsideDock(row);
             int j = rest.indexOf(pkg);
-            if (j > 0) items.add(new MenuItem(R.drawable.ic_left, R.string.menu_move_left, () -> moveApp(rest, j, j - 1)));
-            if (j >= 0 && j < rest.size() - 1) items.add(new MenuItem(R.drawable.ic_right, R.string.menu_move_right, () -> moveApp(rest, j, j + 1)));
-            if (j - COLUMNS >= 0) items.add(new MenuItem(R.drawable.ic_grid, R.string.menu_move_up, () -> moveApp(rest, j, j - COLUMNS)));
-            if (j >= 0 && j + COLUMNS < rest.size()) items.add(new MenuItem(R.drawable.ic_grid, R.string.menu_move_down, () -> moveApp(rest, j, j + COLUMNS)));
+            if (j > 0) items.add(new MenuItem(R.drawable.ic_left, R.string.menu_move_left, () -> moveApp(row, rest, j, j - 1)));
+            if (j >= 0 && j < rest.size() - 1) items.add(new MenuItem(R.drawable.ic_right, R.string.menu_move_right, () -> moveApp(row, rest, j, j + 1)));
+            if (j - COLUMNS >= 0) items.add(new MenuItem(R.drawable.ic_grid, R.string.menu_move_up, () -> moveApp(row, rest, j, j - COLUMNS)));
+            if (j >= 0 && j + COLUMNS < rest.size()) items.add(new MenuItem(R.drawable.ic_grid, R.string.menu_move_down, () -> moveApp(row, rest, j, j + COLUMNS)));
             items.add(new MenuItem(R.drawable.ic_star, R.string.menu_pin, () -> {
                 if (!Grid.dockHasRoom(dock.size(), COLUMNS)) {
                     Toast.makeText(this, R.string.dock_full, Toast.LENGTH_SHORT).show();
@@ -663,9 +673,25 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         return rest;
     }
 
-    /** Moves an app outside the dock; from then on the viewer's order is kept (HomePrefs.appOrder). */
-    private void moveApp(List<String> rest, int from, int to) {
+    /** The apps in the dock row, left to right, as they are on screen (pinned or filling a free slot). */
+    private List<String> dockRow() {
+        List<String> row = new ArrayList<>();
+        int end = Math.min(Grid.dockSize(COLUMNS), adapter.getItemCount());
+        for (int i = 0; i < end; i++) {
+            String p = adapter.pkgAt(i);
+            if (p != null && !row.contains(p)) row.add(p);
+        }
+        return row;
+    }
+
+    /**
+     * Moves an app outside the dock; from then on the viewer's order is kept (HomePrefs.appOrder). The
+     * dock row is pinned as it stands first: apps filling its free slots come from that same order, and
+     * would otherwise change place with it.
+     */
+    private void moveApp(List<String> row, List<String> rest, int from, int to) {
         rest.add(to, rest.remove(from));
+        prefs.setDock(row);
         prefs.setAppOrder(rest);
         AppLoader.reorder(this);
     }
@@ -1691,6 +1717,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
+    /** The first of these packages installed on this device, or "" when none is. */
+    private String firstInstalled(String[] packages) {
+        for (String pkg : packages) {
+            if (!pkg.trim().isEmpty() && installed(pkg.trim())) return pkg.trim();
+        }
+        return "";
+    }
+
     private String appLabel(String pkg) {
         try {
             return String.valueOf(getPackageManager().getApplicationLabel(getPackageManager().getApplicationInfo(pkg, 0)));
@@ -1784,7 +1818,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         if (intent == null || !intent.hasCategory(Intent.CATEGORY_HOME)) return;
         long now = SystemClock.elapsedRealtime();
-        if (now - lastHomePress <= DOUBLE_HOME_MS) {
+        // The double press belongs to Google TV only, and QuickPanelService counts it from the key when
+        // it sent this Home; counted here only on Google TV without that service.
+        boolean countDouble = googleTv && !intent.getBooleanExtra(QuickPanelService.EXTRA_FROM_KEY, false);
+        if (countDouble && now - lastHomePress <= DOUBLE_HOME_MS) {
             // Two quick presses: quick settings. They do not count towards the slower recovery triple.
             lastHomePress = 0;
             java.util.Arrays.fill(homePresses, 0);
@@ -1807,7 +1844,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      * Google TV Home was switched off (an update, a crash). Each notice at most once a day.
      */
     private void checkGoogleTvSetup() {
-        if (!installed(QuickPanelService.GOOGLE_TV_HOME)) return;
+        if (!googleTv) return;          // plain Android TV: the system keeps the default home itself
         boolean service = serviceEnabled(QuickPanelService.class);
         boolean home = isDefaultHome();
         if (home && !service) showServiceOffNotice();
