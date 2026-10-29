@@ -6,7 +6,7 @@
     <string name="settings">Configurações</string>
     <string name="home_options">Opções</string>
     <string name="quick_panel_label">NHGC: configurações rápidas e tela inicial</string>
-    <string name="quick_panel_description">Aperte Início duas vezes para abrir o painel de configurações rápidas do sistema. Mantém este launcher como tela inicial quando o Google TV abre a dele.</string>
+    <string name="quick_panel_description">Início abre este launcher; apertado duas vezes ou mantido, abre o painel de configurações rápidas do sistema. Só usa a tecla Início: as demais teclas passam sem alteração.</string>
     <string name="choose_input">Entradas</string>
     <string name="connected">Conectado</string>
     <string name="standby">Em espera</string>
@@ -46,7 +46,7 @@
     <string name="weather_set">Clima: %1$s</string>
     <string name="ok">OK</string>
     <string name="cancel">Cancelar</string>
-    <string name="default_name">Eddy</string>
+    <string name="name_none">sem nome</string>
     <string name="greet_morning">Bom dia, %1$s.</string>
     <string name="greet_afternoon">Boa tarde, %1$s.</string>
     <string name="greet_night">Boa noite, %1$s.</string>
@@ -181,4 +181,7 @@
     <string name="service_off_title">Serviço de Início desativado</string>
     <string name="service_off_message">O serviço de acessibilidade «%1$s» está desativado. Sem ele, apertar Início duas vezes abre as Configurações em vez do painel de configurações rápidas, e a tela inicial não é vigiada. Ative em Configurações &gt; Sistema &gt; Acessibilidade, ou execute instalar.ps1 de novo.</string>
     <string name="service_off_open">Abrir Acessibilidade</string>
+    <string name="menu_move_up">Mover para cima</string>
+    <string name="menu_move_down">Mover para baixo</string>
+    <string name="opt_reset_order">Restaurar a ordem dos apps</string>
 </resources>

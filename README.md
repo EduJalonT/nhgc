@@ -6,8 +6,10 @@ Launcher ligero para **Chromecast con Google TV**, basado en
 Sustituye a Google TV Home como pantalla de inicio sin desactivarlo. Google TV Home sigue instalado
 como mecanismo de recuperación y conserva su panel de ajustes rápidos.
 
-> Estado: compila, pasa los tests unitarios y el lint, pero **aún no se ha validado en un Chromecast
-> real**. Consulta [docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md) antes de instalarlo.
+> Versión estable **2026.10.29.001**, probada en un Chromecast con Google TV (Android 14).
+> Consulta [docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md) antes de instalarlo.
+>
+> Las versiones siguen la fecha: `AAAA.MM.DD.NNN` (versionCode `AAMMDDNNN`).
 
 ## Qué hace
 
@@ -15,11 +17,12 @@ como mecanismo de recuperación y conserva su panel de ajustes rápidos.
 |---|---|
 | Opciones del launcher | Botón con icono de lápiz en la barra superior (el mando del Chromecast no tiene tecla Menu) |
 | Ajustes rápidos del sistema | Pulsar **Inicio dos veces** (menos de 0,5 s) abre el panel nativo de Google TV |
-| Pantalla de inicio | El launcher queda como inicio predeterminado; si Google TV la recupera, lo detecta y ofrece restablecerla |
-| Cabecera | Muestra el nombre real del dispositivo (Ajustes > Sistema > Información) |
+| Pantalla de inicio | El servicio de accesibilidad atiende la tecla Inicio del mando y abre NHGC sin pasar por Google TV |
+| Cabecera | Iconos de Font Awesome: nombre real del dispositivo · hora · fecha · ciudad – clima con su icono |
 | Saludo | «Buenos días / Buenas tardes / Buenas noches», con tu nombre o «a todos», según la hora del dispositivo |
-| Noticias RSS | Hasta 5 feeds propios (Opciones > Noticias); no trae fuentes predefinidas |
-| Entradas | Sin entradas que listar, el botón envía la misma tecla que el botón Entrada del mando |
+| Noticias RSS | Hasta 5 feeds propios (Opciones > Noticias); la fila se pliega al bajar a las apps |
+| Salvapantallas | Botón con icono de luna: noticias a pantalla completa (solo con la fila de noticias activa) |
+| Apps | Reordenables fuera del dock (mantener OK > Mover); el botón Entradas solo aparece si la TV tiene entradas |
 | Recuperación | Inicio 3 veces en 10 s abre un menú para reactivar Google TV Home o restablecer los ajustes |
 
 El diseño, los fondos, el salvapantallas de reloj y el lector de noticias son los del launcher original.

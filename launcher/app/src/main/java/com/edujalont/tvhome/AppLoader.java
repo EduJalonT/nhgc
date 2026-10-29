@@ -105,7 +105,7 @@ final class AppLoader {
             }
             HomePrefs prefs = new HomePrefs(app);
             List<AppAdapter.Entry> fresh = new ArrayList<>(current);
-            sort(fresh, prefs.dock(), prefs.recents());
+            sort(fresh, prefs.dock(), prefs.appOrder(), prefs.recents());
             if (sameTiles(last, fresh)) return;          // the order did not change
             last = fresh;
             MAIN.post(() -> callback.onLoaded(fresh));
@@ -202,16 +202,20 @@ final class AppLoader {
             fresh.add(e);
         }
         CACHE.keySet().retainAll(seen);
-        sort(fresh, favourites, recents);
+        sort(fresh, favourites, prefs.appOrder(), recents);
         return fresh;
     }
 
     /**
-     * The tile order: dock first (its own order), then the recent apps, then alphabetical. Split from
-     * {@link #load} so coming back to Home can re-sort the cached tiles without touching the
-     * PackageManager.
+     * The tile order: dock first (its own order); then, once the viewer arranged the apps, their own
+     * order (apps it does not list last, alphabetical); otherwise the recent apps, then alphabetical.
+     * Split from {@link #load} so coming back to Home can re-sort the cached tiles without touching
+     * the PackageManager.
      */
-    private static void sort(List<AppAdapter.Entry> tiles, List<String> favourites, List<String> recents) {
+    private static void sort(List<AppAdapter.Entry> tiles, List<String> favourites, List<String> order,
+                             List<String> recents) {
+        // A manual order is not reshuffled by opening apps; without one, recents lead as before.
+        List<String> lead = order.isEmpty() ? recents : order;
         Collections.sort(tiles, (a, b) -> {
             int fa = favourites.indexOf(a.pkg), fb = favourites.indexOf(b.pkg);
             if (fa >= 0 || fb >= 0) {
@@ -219,7 +223,7 @@ final class AppLoader {
                 if (fb < 0) return -1;
                 return Integer.compare(fa, fb);
             }
-            int ra = recents.indexOf(a.pkg), rb = recents.indexOf(b.pkg);
+            int ra = lead.indexOf(a.pkg), rb = lead.indexOf(b.pkg);
             if (ra >= 0 || rb >= 0) {
                 if (ra < 0) return 1;
                 if (rb < 0) return -1;

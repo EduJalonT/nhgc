@@ -41,6 +41,7 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.view.animation.LayoutAnimationController;
@@ -86,10 +87,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** InputCardsActivity returns OK when a card changed; the grid is rebuilt in place, no recreate(). */
     private static final int INPUT_CARDS_REQUEST = 2015;
-    /** The system's "default home app" request (RoleManager), offered once Google TV took Home back. */
+    /** The system's "default home app" request (RoleManager), offered once the HOME role was lost. */
     private static final int HOME_ROLE_REQUEST = 2016;
-    /** Set by QuickPanelService when it had to replace Google TV Home: the default home was lost. */
-    static final String EXTRA_HOME_LOST = "com.edujalont.tvhome.extra.HOME_LOST";
     /** Each setup notice (home lost, service off) shows at most this often, so the TV never nags. */
     private static final long HOME_LOST_NOTICE_MS = 24 * 60 * 60_000L;
 
@@ -133,7 +132,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView brand;
     private TextView greeting;
     private TextView subtitle;
-    private TextView weather;
+    private TextView weather, weatherCity;
+    private View weatherSeparator;
+    /** Font Awesome icon on the weather now, so it is only swapped when the condition changes. */
+    private int weatherIconRes;
     /** Eddy TV accent colours, in the order of R.array.accent_names. */
     private static final int[] ACCENTS = {0xFF4C8DFF, 0xFF3DDC97, 0xFFFF9F43, 0xFFFF5C8A, 0xFFA779FF, 0xFFFFFFFF};
     private static final int FOCUS_RING = 0xF2FFFFFF;
@@ -146,6 +148,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** Benchmark aid: `settings put global eddy_debug_keys 1` logs how long each key took to reach us. */
     private boolean debugKeys;
     private TextView btnWifi;
+    /** The news screensaver pill: shown while the news row is switched on (onResume). */
+    private View btnScreensaver;
     private SpringAnimation springX, springY;
     private float glassTargetX, glassTargetY;   // X in root coordinates, Y in grid content coordinates
     private int gridScrollY;   // how far the grid content has scrolled, summed from onScrolled
@@ -208,6 +212,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         greeting = findViewById(R.id.greeting);
         subtitle = findViewById(R.id.subtitle);
         weather = findViewById(R.id.weather);
+        weatherCity = findViewById(R.id.weatherCity);
+        weatherSeparator = findViewById(R.id.weatherSeparator);
         applyAccent();
         btnWifi = findViewById(R.id.btnWifi);
 
@@ -241,6 +247,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 if (top < 0) dy = top;
                 else if (bottom <= getHeight()) dy = 0;
                 else dy = Math.min(top, bottom - limitBottom);
+                // Scrolling down must not leave a row cut in half under the header: push it out whole
+                // while the focused tile still fits.
+                if (dy > 0) {
+                    for (int i = 0; i < getChildCount(); i++) {
+                        View c = getChildAt(i);
+                        if (c == null) continue;
+                        int ct = c.getTop() - dy, cb = c.getBottom() - dy;
+                        if (ct < 0 && cb > 0) {
+                            if (top - dy - cb >= 0) dy += cb;
+                            break;
+                        }
+                    }
+                }
                 if (dy == 0) return false;
                 if (immediate || light) parent.scrollBy(0, dy);
                 else parent.smoothScrollBy(0, dy);
@@ -334,6 +353,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Chromecast remote: no Menu key, so the home screen's options get their own pill.
         View btnHomeOptions = findViewById(R.id.btnHomeOptions);
         btnHomeOptions.setOnClickListener(this::showHomeOptions);
+        // A streaming device (Chromecast with Google TV) is an HDMI source with nothing to list, and its
+        // remote's Input button talks to the TV itself, which no app can do: the pill could only fail.
+        if (!hasInputs()) btnInputs.setVisibility(View.GONE);
+        // The launcher's own screensaver: the news in full screen. Google TV lets no app start its own.
+        btnScreensaver = findViewById(R.id.btnScreensaver);
+        btnScreensaver.setOnClickListener(v -> startActivity(new Intent(this, NewsFullActivity.class)));
 
         // Keep focus on the top bar at its ends and at the top: Android's focus finder would otherwise
         // jump to a tile far below when there is nothing in that direction.
@@ -345,14 +370,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
             if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
-                // Back to the dock tile Up came from, not wherever the focus finder lands.
-                focusTile(lastFocused % COLUMNS);
+                // The news row, when it is there, sits between the bar and the dock: Down meets it
+                // first, as Up from the dock does. Otherwise back to the dock tile Up came from.
+                if (newsCarousel != null && newsCarousel.getVisibility() == View.VISIBLE) newsCarousel.requestFocus();
+                else focusTile(lastFocused % COLUMNS);
                 return true;
             }
-            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v.getId() == R.id.btnInputs) return true;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v == firstVisiblePill()) return true;
             return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == R.id.btnHomeOptions;
         };
         btnInputs.setOnKeyListener(pillKeys);
+        btnScreensaver.setOnKeyListener(pillKeys);
         btnWifi.setOnKeyListener(pillKeys);
         btnVoice.setOnKeyListener(pillKeys);
         btnSettings.setOnKeyListener(pillKeys);
@@ -373,7 +401,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         if (cm != null) cm.registerDefaultNetworkCallback(networkCallback);
-        maybeOfferHomeRole(getIntent());
     }
 
     @Override
@@ -391,6 +418,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         updateWifiLabel();
         refreshWeather();
         refreshNews();
+        btnScreensaver.setVisibility(NewsFeed.enabled(this) ? View.VISIBLE : View.GONE);
         handler.postDelayed(minuteTick, MINUTE_MS);
 
         // Tiles are cached for the life of the process: show them right away, then let the loader check
@@ -524,6 +552,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     public void onTileFocused(int position, View card) {
         lastFocused = position;
         lastFocusedKey = adapter.keyAt(position);
+        if (position != clampedTo) clampedTo = -1;      // moved on sideways: Up uses this tile's column
+        // Below the dock the news row folds away so the apps get the screen; back on the dock it returns.
+        setNewsFolded(!Grid.inDock(position, COLUMNS));
         // Focus restored before the first layout (cold start): the tile has no size yet, and the ring
         // would be drawn as a dot. Run again once it is laid out.
         if (card.getWidth() == 0) {
@@ -595,6 +626,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 saveDock(dock);
             }));
         } else {
+            // Apps outside the dock, in screen order: they start on the row after the dock, so a row
+            // up or down is COLUMNS places away.
+            List<String> rest = appsOutsideDock(dock);
+            int j = rest.indexOf(pkg);
+            if (j > 0) items.add(new MenuItem(R.drawable.ic_left, R.string.menu_move_left, () -> moveApp(rest, j, j - 1)));
+            if (j >= 0 && j < rest.size() - 1) items.add(new MenuItem(R.drawable.ic_right, R.string.menu_move_right, () -> moveApp(rest, j, j + 1)));
+            if (j - COLUMNS >= 0) items.add(new MenuItem(R.drawable.ic_grid, R.string.menu_move_up, () -> moveApp(rest, j, j - COLUMNS)));
+            if (j >= 0 && j + COLUMNS < rest.size()) items.add(new MenuItem(R.drawable.ic_grid, R.string.menu_move_down, () -> moveApp(rest, j, j + COLUMNS)));
             items.add(new MenuItem(R.drawable.ic_star, R.string.menu_pin, () -> {
                 if (!Grid.dockHasRoom(dock.size(), COLUMNS)) {
                     Toast.makeText(this, R.string.dock_full, Toast.LENGTH_SHORT).show();
@@ -611,6 +650,24 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         items.add(new MenuItem(R.drawable.ic_info, R.string.menu_info, () ->
                 open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + pkg)))));
         showMenu(card, items);
+    }
+
+    /** The apps on screen that are not pinned, in their current order (input cards excluded). */
+    private List<String> appsOutsideDock(List<String> dock) {
+        List<String> rest = new ArrayList<>();
+        List<AppAdapter.Entry> apps = AppLoader.cached();
+        if (apps == null) return rest;
+        for (AppAdapter.Entry e : apps) {
+            if (!dock.contains(e.pkg) && !rest.contains(e.pkg)) rest.add(e.pkg);
+        }
+        return rest;
+    }
+
+    /** Moves an app outside the dock; from then on the viewer's order is kept (HomePrefs.appOrder). */
+    private void moveApp(List<String> rest, int from, int to) {
+        rest.add(to, rest.remove(from));
+        prefs.setAppOrder(rest);
+        AppLoader.reorder(this);
     }
 
     private void moveInDock(List<String> dock, int from, int to) {
@@ -634,7 +691,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     private void showHomeOptions(View anchor, int focusIndex) {
         List<MenuItem> items = new ArrayList<>();
-        items.add(new MenuItem(R.drawable.ic_person, getString(R.string.opt_name, prefs.userName()), () ->
+        items.add(new MenuItem(R.drawable.ic_person, getString(R.string.opt_name,
+                prefs.hasUserName() ? prefs.userName() : getString(R.string.name_none)), () ->
                 askText(R.string.name_title, prefs.userName(), 0, text -> {
                     prefs.setUserName(text);
                     prefs.setGreetEveryone(text.trim().isEmpty());   // a typed name is meant to be used
@@ -650,17 +708,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             prefs.setGreetEveryone(!prefs.greetEveryone());
             updateGreeting();
         }));
-        items.add(new MenuItem(R.drawable.ic_input, R.string.input_cards, () ->
-                startActivityForResult(new Intent(this, InputCardsActivity.class), INPUT_CARDS_REQUEST)));
+        // Input cards turn this device's HDMI/AV inputs into tiles: nothing to set up without inputs.
+        if (hasInputs()) {
+            items.add(new MenuItem(R.drawable.ic_input, R.string.input_cards, () ->
+                    startActivityForResult(new Intent(this, InputCardsActivity.class), INPUT_CARDS_REQUEST)));
+        }
         items.add(new MenuItem(R.drawable.ic_info, R.string.news_settings_title, () ->
                 startActivity(new Intent(this, NewsSettingsActivity.class))));
+        int messageRow = items.size();   // where the menu reopens after the message is typed
         String message = prefs.message();
         items.add(new MenuItem(R.drawable.ic_edit, getString(R.string.opt_message,
                 message.isEmpty() ? getString(R.string.opt_message_auto) : message), () ->
                 askText(R.string.message_title, prefs.message(), R.string.message_hint, text -> {
                     prefs.setMessage(text);
                     updateGreeting();
-                }, () -> showHomeOptions(anchor, 4))));   // name, greet, inputs, news, message
+                }, () -> showHomeOptions(anchor, messageRow))));
         String[] accentNames = getResources().getStringArray(R.array.accent_names);
         items.add(new MenuItem(R.drawable.ic_circle,
                 () -> getString(R.string.opt_accent, accentNames[prefs.accent() % accentNames.length]), dir -> {
@@ -713,6 +775,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             prefs.resetDock();
             AppLoader.reorder(this);
         }));
+        if (!prefs.appOrder().isEmpty()) {
+            items.add(new MenuItem(R.drawable.ic_refresh, R.string.opt_reset_order, () -> {
+                prefs.resetAppOrder();
+                AppLoader.reorder(this);
+            }));
+        }
         showMenu(null, items, focusIndex, () -> {
             if (prefs.columns() != COLUMNS) recreate();
         });
@@ -898,9 +966,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 if (p == null) {
                     message = R.string.weather_not_found;
                 } else {
-                    String now = Weather.current(getApplicationContext(), p.lat, p.lon);
+                    Weather.Now now = Weather.current(getApplicationContext(), p.lat, p.lon);
                     prefs.setWeatherPlace(p.name, p.lat, p.lon);
-                    prefs.setWeatherText(now);
+                    prefs.setWeather(now);
                     place = p.name;
                     message = R.string.weather_set;
                 }
@@ -929,7 +997,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         final double lat = prefs.weatherLat(), lon = prefs.weatherLon();
         WEATHER.execute(() -> {
             try {
-                prefs.setWeatherText(Weather.current(getApplicationContext(), lat, lon));
+                prefs.setWeather(Weather.current(getApplicationContext(), lat, lon));
                 handler.post(() -> {
                     if (!isDestroyed()) updateGreeting();
                 });
@@ -994,18 +1062,38 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 }
                 return false;
             }
-            target = position - COLUMNS;
+            // Back up the column Down came from when the short last row moved the focus sideways:
+            // Down from the 4th column lands on the row's first tile, and Up returns to the 4th.
+            int column = position == clampedTo ? clampedFromColumn : Grid.columnOf(position, COLUMNS);
+            target = (Grid.rowOf(position, COLUMNS) - 1) * COLUMNS + column;
+            clampedTo = -1;
         } else {
             int lastRowStart = Grid.lastRowStart(count, COLUMNS);
             if (position >= lastRowStart) {                // already on the last row: stay put
                 nudgeGlass(0, 1);
                 return true;
             }
-            target = Math.min(position + COLUMNS, count - 1);
+            target = position + COLUMNS;
+            clampedTo = -1;
+            if (target > count - 1) {                      // the last row is shorter: its first tile
+                target = lastRowStart;
+                clampedTo = target;
+                clampedFromColumn = Grid.columnOf(position, COLUMNS);
+            }
+        }
+        // Between the dock and the apps the news row folds or unfolds. Do that first and move the focus
+        // once the grid has settled: focusing first sent the highlight to where the row was before the
+        // fold (one row too low) and then jumped it up to where the row ended up.
+        if (Grid.inDock(position, COLUMNS) != Grid.inDock(target, COLUMNS)
+                && setNewsFolded(!Grid.inDock(target, COLUMNS), position, target)) {
+            return true;
         }
         focusTile(target);
         return true;
     }
+
+    /** The tile a Down landed on after a short last row moved it to the row start, and the column it left. */
+    private int clampedTo = -1, clampedFromColumn;
 
     // ---- news (RSS) ------------------------------------------------------------------------------
 
@@ -1015,6 +1103,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private LinearLayout newsDots;
     private List<NewsFeed.Headline> newsHeadlines = Collections.emptyList();
     private int newsIndex = -1;
+    /** The news row is folded away while the focus is on the apps below the dock (setNewsFolded). */
+    private boolean newsFolded;
     /** Advances the carousel while the viewer is not on it, like the upstream row (news_rotate). */
     private final Handler newsRotate = new Handler(Looper.getMainLooper());
     private final Runnable newsRotateStep = this::rotateNews;
@@ -1070,10 +1160,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /**
      * Reads the cache and, when it is older than the refresh interval, fetches in the background.
-     * Everything here is off when the row is disabled: no request, no view, no work.
+     * Everything here is off when the row is disabled: no request, no view, no work. Only that switch
+     * decides, whatever the experience: in Performance the row used to stay hidden with the switch on,
+     * which looked like a broken feed.
      */
     private void refreshNews() {
-        if (newsCarousel == null || light) { hideNewsScene(); return; }
+        if (newsCarousel == null) { hideNewsScene(); return; }
         if (!NewsFeed.enabled(this)) { hideNewsScene(); return; }
         List<NewsFeed.Headline> cached = NewsFeed.cached(this);
         if (!cached.isEmpty()) showNews(cached);
@@ -1087,6 +1179,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         newsHeadlines = headlines;
         if (newsIndex < 0 || newsIndex >= headlines.size()) newsIndex = 0;
+        if (newsFolded) return;          // kept for when the focus is back on the dock (setNewsFolded)
         if (newsCarousel.getVisibility() != View.VISIBLE) {
             newsCarousel.setVisibility(View.VISIBLE);
             // The carousel takes a fixed slice under the header; the grid keeps its own padding.
@@ -1175,6 +1268,70 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 Toast.makeText(this, getString(R.string.cant_open, h.source), Toast.LENGTH_SHORT).show();
             }
         }
+    }
+
+    /**
+     * With the news row on screen the grid had room for one row only: moving from the dock to the apps
+     * swapped the whole row in place, the dock vanished and the viewer lost track of where they were.
+     * So the row folds while the focus is below the dock and unfolds when it is back on the dock, as
+     * Google TV's own home does with its top row.
+     */
+    private void setNewsFolded(boolean fold) {
+        setNewsFolded(fold, lastFocused, lastFocused);
+    }
+
+    /**
+     * Folds or unfolds the news row; once the grid has moved, puts the highlight back on {@code from}
+     * where that tile now is, then focuses {@code to}, so the highlight takes one short step.
+     * Returns false when nothing changed on screen (the caller moves the focus itself).
+     */
+    private boolean setNewsFolded(boolean fold, int from, int to) {
+        if (fold == newsFolded || newsCarousel == null) return false;
+        newsFolded = fold;
+        int before = newsCarousel.getVisibility();
+        if (fold) {
+            if (before == View.VISIBLE) {
+                newsRotate.removeCallbacks(newsRotateStep);
+                newsCarousel.setVisibility(View.GONE);
+            }
+        } else if (!newsHeadlines.isEmpty()) {
+            showNews(newsHeadlines);
+        }
+        if (newsCarousel.getVisibility() == before) return false;
+        // The grid moves once the row has gone or come back, but the glass was placed on the tile where
+        // it was before: on the TV it was left floating over the old spot. Fit it again after that layout.
+        grid.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                grid.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                if (isDestroyed()) return;
+                if (from != to) {
+                    if (lastFocused != from) return;      // another key already moved the focus on
+                    snapGlass(from);
+                }
+                focusTile(to);
+            }
+        });
+        return true;
+    }
+
+    /** Puts the highlight straight onto a tile, without the spring: it has moved with the grid. */
+    private void snapGlass(int position) {
+        if (!glassShown) return;
+        RecyclerView.ViewHolder vh = grid.findViewHolderForAdapterPosition(position);
+        View card = vh == null ? null : vh.itemView.findViewById(R.id.card);
+        if (card == null || card.getWidth() == 0) return;
+        Rect r = tileRect;
+        r.set(0, 0, card.getWidth(), card.getHeight());
+        root.offsetDescendantRectToMyCoords(card, r);
+        float x = r.exactCenterX() - glass.getLayoutParams().width / 2f;
+        float y = r.exactCenterY() - glass.getLayoutParams().height / 2f;
+        springX.cancel();
+        springY.cancel();
+        glass.setTranslationX(x);
+        glass.setTranslationY(y);
+        glassTargetX = x;
+        glassTargetY = y + gridScrollY;
     }
 
     private void hideNewsScene() {
@@ -1294,10 +1451,32 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         String message = prefs.message();
         setIfChanged(subtitle, message.isEmpty()
                 ? getString(new int[]{R.string.sub_morning, R.string.sub_afternoon, R.string.sub_night}[period]) : message);
+        // "· GUAYAQUIL – <icon> 23° NUBLADO": the city from the weather settings, then the condition.
         String w = prefs.hasWeatherPlace() ? prefs.weatherText() : "";
         setIfChanged(weather, w);
+        String city = prefs.weatherCity();
+        setIfChanged(weatherCity, city.isEmpty() ? "" : getString(R.string.weather_city, city));
+        int icon = w.isEmpty() ? 0 : prefs.weatherIcon();
+        if (icon != weatherIconRes) {
+            weatherIconRes = icon;
+            weather.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0);
+        }
         int visibility = w.isEmpty() ? View.GONE : View.VISIBLE;
-        if (weather.getVisibility() != visibility) weather.setVisibility(visibility);
+        if (weather.getVisibility() != visibility) {
+            weather.setVisibility(visibility);
+            weatherSeparator.setVisibility(visibility);
+        }
+        int cityVisibility = w.isEmpty() || city.isEmpty() ? View.GONE : View.VISIBLE;
+        if (weatherCity.getVisibility() != cityVisibility) weatherCity.setVisibility(cityVisibility);
+    }
+
+    /** The leftmost pill on screen, where Left stops (Inputs and the screensaver come and go). */
+    private View firstVisiblePill() {
+        ViewGroup bar = findViewById(R.id.topButtons);
+        for (int i = 0; i < bar.getChildCount(); i++) {
+            if (bar.getChildAt(i).getVisibility() == View.VISIBLE) return bar.getChildAt(i);
+        }
+        return null;
     }
 
     /** Greeting box: 390dp at most, never past the pills (16dp gap), never under 200dp. */
@@ -1342,6 +1521,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void applyAccent() {
         int color = ACCENTS[prefs.accent() % ACCENTS.length];
         brand.setTextColor(color);
+        brand.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(color));
         glass.setRing(FOCUS_RING);
     }
 
@@ -1590,7 +1770,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        maybeOfferHomeRole(intent);
         if (intent != null && ACTION_OPEN_INPUTS.equals(intent.getAction())) {
             // The remote's Input/Source button (via InputKeyService) toggles the Inputs dropdown,
             // opening it from any app and closing it again on the next press (#244).
@@ -1623,19 +1802,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     /**
-     * Google TV took the default home back (QuickPanelService replaced its home screen): tell the
-     * viewer once a day and offer to make this launcher the default again.
-     */
-    private void maybeOfferHomeRole(Intent intent) {
-        if (intent == null || !intent.getBooleanExtra(EXTRA_HOME_LOST, false)) return;
-        intent.removeExtra(EXTRA_HOME_LOST);   // not again on a configuration change
-        showHomeLostNotice();
-    }
-
-    /**
      * On a Google TV device set up by instalar.ps1, what the setup depends on, checked when Home shows:
-     * the default home was taken back by Google TV (before it even shows its own home screen), or the
-     * accessibility service was switched off (an update, a crash). Each notice at most once a day.
+     * the HOME role was taken back (an update, a reset), or the accessibility service that replaces
+     * Google TV Home was switched off (an update, a crash). Each notice at most once a day.
      */
     private void checkGoogleTvSetup() {
         if (!installed(QuickPanelService.GOOGLE_TV_HOME)) return;
@@ -1645,11 +1814,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         else if (!home && service) showHomeLostNotice();
     }
 
-    /** What the Home button opens now: true when that is this launcher. */
+    /** This launcher holds the HOME role (see QuickPanelService.isDefaultHome). */
     private boolean isDefaultHome() {
-        ResolveInfo ri = getPackageManager().resolveActivity(
-                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY);
-        return ri != null && ri.activityInfo != null && getPackageName().equals(ri.activityInfo.packageName);
+        return QuickPanelService.isDefaultHome(this);
     }
 
     /** True at most once per HOME_LOST_NOTICE_MS for this notice key, and records the showing. */
@@ -1724,12 +1891,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 .setMessage(getString(R.string.home_lost_adb, getPackageName()))
                 .setPositiveButton(android.R.string.ok, null)
                 .show();
-    }
-
-    @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) QuickPanelService.homeFocused();   // the quick settings panel has closed
     }
 
     /**
@@ -2025,9 +2186,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         if (rows.getChildCount() == 0) {
             inputsPopup = null;   // never shown
-            // Nothing to list: a streaming device (Chromecast with Google TV) is an HDMI source and
-            // cannot read the TV's inputs. Do what the remote's Input button does instead.
-            pressInputKey();
+            Toast.makeText(this, R.string.no_inputs, Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -2048,24 +2207,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     /**
-     * Sends KEYCODE_TV_INPUT, the remote's Input button, as if it had been pressed while Home has the
-     * focus: the system handles it the same way (on Google TV, its input switching over HDMI-CEC). An
-     * app may inject keys only into its own focused window, which is the case here, and the key goes
-     * through the system's key handling first. Off the main thread, as Instrumentation requires. With
-     * InputKeyService on, that key would come back here as the Inputs menu, so then just say so.
+     * Whether the Inputs menu has anything to offer: a passthrough input (HDMI/AV) of this device, a
+     * Live TV app, or the TV's own source panel. A Chromecast with Google TV has none: its remote's Input
+     * button switches the TV's input itself (infrared or HDMI-CEC), which Android lets no app do; a
+     * simulated KEYCODE_TV_INPUT was refused on Android 14.
      */
-    private void pressInputKey() {
-        if (serviceEnabled(InputKeyService.class)) {
-            Toast.makeText(this, R.string.no_inputs, Toast.LENGTH_SHORT).show();
-            return;
+    private boolean hasInputs() {
+        if (!sourcePanelService.isEmpty() || liveTvIntent() != null) return true;
+        TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
+        if (tim == null) return false;
+        for (TvInputInfo info : tim.getTvInputList()) {
+            if (info.isPassthroughInput() && !info.isHidden(this)) return true;
         }
-        new Thread(() -> {
-            try {
-                new android.app.Instrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_TV_INPUT);
-            } catch (RuntimeException e) {   // SecurityException when focus moved elsewhere meanwhile
-                handler.post(() -> Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show());
-            }
-        }, "input-key").start();
+        return false;
     }
 
     /** The Live TV app's launch intent, or null when no Live TV row should be added to the menu. */

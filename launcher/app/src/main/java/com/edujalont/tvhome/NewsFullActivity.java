@@ -62,23 +62,8 @@ public final class NewsFullActivity extends Activity {
         dots = findViewById(R.id.fullDots);
         goImmersive();
 
-        items.addAll(NewsFeed.cached(this));
-        if (items.isEmpty()) {
-            // Nothing cached yet: fetch once and show whatever comes back, else leave.
-            NewsFeed.fetch(this, headlines -> {
-                items.addAll(headlines);
-                if (items.isEmpty()) { finish(); return; }
-                buildDots();
-                show();
-                timer.postDelayed(advance, SLIDE_MS);
-            });
-            return;
-        }
-        buildDots();
-        show();
-        timer.postDelayed(advance, SLIDE_MS);
-
-        // Left and Right step by hand; OK opens the article; Back leaves. Held on the whole screen.
+        // Left and Right step by hand; OK opens the article; Back leaves. Held on the whole screen, and
+        // set before any headline is there: with nothing cached yet the keys used to stay unwired.
         View root = findViewById(R.id.fullRoot);
         root.setFocusable(true);
         root.requestFocus();
@@ -103,6 +88,22 @@ public final class NewsFullActivity extends Activity {
                     return true;
             }
         });
+
+        items.addAll(NewsFeed.cached(this));
+        if (items.isEmpty()) {
+            // Nothing cached yet: fetch once and show whatever comes back, else leave.
+            NewsFeed.fetch(this, headlines -> {
+                items.addAll(headlines);
+                if (items.isEmpty()) { finish(); return; }
+                buildDots();
+                show();
+                timer.postDelayed(advance, SLIDE_MS);
+            });
+            return;
+        }
+        buildDots();
+        show();
+        timer.postDelayed(advance, SLIDE_MS);
     }
 
     /** Steps by hand in either direction and restarts the clock, so a read is never cut short. */
@@ -115,6 +116,7 @@ public final class NewsFullActivity extends Activity {
     }
 
     private void open() {
+        if (items.isEmpty()) return;        // still loading
         NewsFeed.Headline h = items.get(index);
         if (h.link.isEmpty()) return;
         try {

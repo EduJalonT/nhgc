@@ -6,7 +6,7 @@
     <string name="settings">Ajustes</string>
     <string name="home_options">Opciones</string>
     <string name="quick_panel_label">NHGC: ajustes rápidos y pantalla de inicio</string>
-    <string name="quick_panel_description">Pulsa Inicio dos veces para abrir el panel de ajustes rápidos del sistema. Mantiene este launcher como pantalla de inicio cuando Google TV abre la suya.</string>
+    <string name="quick_panel_description">Inicio abre este launcher; pulsado dos veces o mantenido, abre el panel de ajustes rápidos del sistema. Solo usa la tecla Inicio: las demás teclas pasan sin tocarse.</string>
     <string name="choose_input">Entradas</string>
     <string name="connected">Conectado</string>
     <string name="standby">En espera</string>
@@ -46,7 +46,7 @@
     <string name="weather_set">Clima: %1$s</string>
     <string name="ok">Aceptar</string>
     <string name="cancel">Cancelar</string>
-    <string name="default_name">Eddy</string>
+    <string name="name_none">sin nombre</string>
     <string name="greet_morning">Buenos días, %1$s.</string>
     <string name="greet_afternoon">Buenas tardes, %1$s.</string>
     <string name="greet_night">Buenas noches, %1$s.</string>
@@ -168,4 +168,22 @@
     <string name="service_off_title">Servicio de Inicio desactivado</string>
     <string name="service_off_message">El servicio de accesibilidad «%1$s» está desactivado. Sin él, la doble pulsación de Inicio abre los Ajustes en lugar del panel de ajustes rápidos, y no se vigila la pantalla de inicio. Actívalo en Ajustes &gt; Sistema &gt; Accesibilidad, o vuelve a ejecutar instalar.ps1.</string>
     <string name="service_off_open">Abrir Accesibilidad</string>
+    <!-- Background names, in the order of MainActivity.BG_IDS (missing in Spanish upstream: showed in English). -->
+    <string-array name="wallpaper_names">
+        <item>Negro</item>
+        <item>Medianoche</item>
+        <item>Bosque</item>
+        <item>Ciruela</item>
+        <item>Vino</item>
+        <item>Grafito</item>
+        <item>Petróleo</item>
+        <item>Aurora</item>
+        <item>La Tierra de noche</item>
+        <item>Nebulosa desenfocada</item>
+        <item>Vía Láctea desenfocada</item>
+        <item>Estelas de estrellas desenfocadas</item>
+    </string-array>
+    <string name="menu_move_up">Mover arriba</string>
+    <string name="menu_move_down">Mover abajo</string>
+    <string name="opt_reset_order">Restablecer el orden de las apps</string>
 </resources>

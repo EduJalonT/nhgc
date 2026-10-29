@@ -6,7 +6,7 @@
     <string name="settings">Einstellungen</string>
     <string name="home_options">Optionen</string>
     <string name="quick_panel_label">NHGC: Schnelleinstellungen und Startbildschirm</string>
-    <string name="quick_panel_description">Zweimal Home drücken öffnet die Schnelleinstellungen des Systems. Hält diesen Launcher als Startbildschirm, wenn Google TV den eigenen öffnet.</string>
+    <string name="quick_panel_description">Home öffnet diesen Launcher; zweimal gedrückt oder gehalten öffnet es die Schnelleinstellungen des Systems. Nur die Home-Taste wird verwendet: alle anderen Tasten bleiben unberührt.</string>
     <string name="choose_input">Quellen</string>
     <string name="connected">Verbunden</string>
     <string name="standby">Standby</string>
@@ -55,4 +55,7 @@
     <string name="news_meta">%1$s · %2$s</string>
     <string name="news_clear">Nachrichten jetzt leeren</string>
     <string name="news_open_hint">OK zum Öffnen drücken</string>
+    <string name="menu_move_up">Nach oben</string>
+    <string name="menu_move_down">Nach unten</string>
+    <string name="opt_reset_order">App-Reihenfolge zurücksetzen</string>
 </resources>

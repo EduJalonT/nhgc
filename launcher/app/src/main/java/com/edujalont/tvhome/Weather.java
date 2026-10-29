@@ -45,15 +45,42 @@ final class Weather {
                 r.getDouble("latitude"), r.getDouble("longitude"));
     }
 
+    static final class Now {
+        /** e.g. "23° NUBLADO", in the TV's language. */
+        final String text;
+        /** WMO weather code, for the icon. */
+        final int code;
+        final boolean day;
+
+        Now(String text, int code, boolean day) {
+            this.text = text;
+            this.code = code;
+            this.day = day;
+        }
+    }
+
     /** Current temperature and condition, e.g. "23° NUBLADO", in the TV's language. */
-    static String current(Context ctx, double lat, double lon) throws Exception {
+    static Now current(Context ctx, double lat, double lon) throws Exception {
         String url = String.format(Locale.US,
                 "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
-                        + "&current=temperature_2m,weather_code&timezone=auto", lat, lon);
+                        + "&current=temperature_2m,weather_code,is_day&timezone=auto", lat, lon);
         JSONObject cur = new JSONObject(get(url)).getJSONObject("current");
         long temp = Math.round(cur.getDouble("temperature_2m"));
-        int desc = describe(cur.getInt("weather_code"));
-        return desc == 0 ? temp + "°" : temp + "° " + ctx.getString(desc);
+        int code = cur.getInt("weather_code");
+        int desc = describe(code);
+        return new Now(desc == 0 ? temp + "°" : temp + "° " + ctx.getString(desc), code, cur.optInt("is_day", 1) == 1);
+    }
+
+    /** Font Awesome icon for a WMO weather code; clear and few clouds follow day and night. */
+    static int icon(int code, boolean day) {
+        if (code == 0) return day ? R.drawable.fa_sun : R.drawable.fa_moon;
+        if (code <= 2) return day ? R.drawable.fa_cloud_sun : R.drawable.fa_cloud_moon;
+        if (code == 45 || code == 48) return R.drawable.fa_smog;
+        if (code >= 51 && code <= 67) return R.drawable.fa_cloud_rain;
+        if (code >= 71 && code <= 77 || code == 85 || code == 86) return R.drawable.fa_snowflake;
+        if (code >= 80 && code <= 82) return R.drawable.fa_cloud_showers_heavy;
+        if (code >= 95) return R.drawable.fa_cloud_bolt;
+        return R.drawable.fa_cloud;
     }
 
     /** WMO weather code to a short description (string resource), or 0 when there is none. */

@@ -341,7 +341,9 @@ public final class NewsBackdropView extends View {
         if (focused) {
             ringPaint.setStyle(Paint.Style.STROKE);
             ringPaint.setStrokeWidth(ringInset * 2f);
-            ringPaint.setColor(0x66FFFFFF);
+            // The same near-white ring as a focused tile: at 40% white the row looked unfocused and the
+            // viewer lost track of the focus between the dock and the top bar.
+            ringPaint.setColor(0xF2FFFFFF);
             RectF ring = new RectF(bounds);
             ring.inset(ringInset, ringInset);
             canvas.drawRoundRect(ring, radius - ringInset, radius - ringInset, ringPaint);

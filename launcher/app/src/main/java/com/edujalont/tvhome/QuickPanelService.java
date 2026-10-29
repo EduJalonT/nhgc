@@ -2,11 +2,18 @@ package com.edujalont.tvhome;
 
 import android.accessibilityservice.AccessibilityService;
 import android.app.ActivityOptions;
+import android.app.role.RoleManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
+import android.view.KeyEvent;
+import android.view.ViewConfiguration;
 import android.view.accessibility.AccessibilityEvent;
 
 import java.util.HashSet;
@@ -19,14 +26,18 @@ import java.util.Set;
  * cannot start that panel itself: on Google TV it belongs to the system's notification handler and is
  * guarded by a system permission. performGlobalAction asks SystemUI to open it, the same path the
  * system uses.</li>
- * <li>Keeps Google TV Home off screen: Google TV has no setting for another home screen and may take
- * the default home back (an update, a reset). Only then, when its home activity comes to the front, this
- * launcher replaces it at once and offers to become the default home again. Its quick settings panel and
- * every other window stay untouched, so Google TV Home can stay enabled and keep serving that panel.</li>
+ * <li>Keeps Google TV Home off screen. On Google TV (Chromecast, Android 14, measured) the Home button
+ * and boot open Google TV Home's own home activity whatever app holds the HOME role or the preferred
+ * home. So the Home key itself is taken here: a short press opens this launcher before Google TV Home
+ * can show (no flash), a held press opens the quick settings panel as Google TV does. As a fallback (at
+ * boot, or if the key ever bypasses the filter) whenever that home activity comes to the front this
+ * launcher replaces it at once. Only that activity: the quick settings panel is another one
+ * (`.dashboard.DashboardHandler`), and it and every other window stay untouched, so Google TV Home can
+ * stay enabled and keep serving that panel.</li>
  * </ul>
- * Window changes of Google TV Home only (res/xml/quick_panel_service.xml): no keys, no window content.
- * Opt-in: only bound once enabled in Accessibility settings or with
- * `settings put secure enabled_accessibility_services` over adb.
+ * Window changes of Google TV Home and key events (res/xml/quick_panel_service.xml); every key but Home
+ * is handed straight back untouched; no window content. Opt-in: only bound once enabled in
+ * Accessibility settings or with `settings put secure enabled_accessibility_services` over adb.
  */
 public class QuickPanelService extends AccessibilityService {
 
@@ -35,35 +46,26 @@ public class QuickPanelService extends AccessibilityService {
     private static final long DUPLICATE_MS = 250;
     /** Re-read Google TV Home's activities at most this often when an unknown one shows (app update). */
     private static final long REFRESH_MS = 30_000;
-    /** Upper bound of the hands-off time after opening the panel, in case Home never regains focus. */
-    private static final long PANEL_MAX_MS = 10 * 60_000L;
 
     private static volatile QuickPanelService instance;
-    /**
-     * While the quick settings panel we asked for is open, Google TV Home is left alone: the panel is
-     * Google TV Home's own, and on some builds it may be hosted by its home activity. Cleared when this
-     * launcher gets the window focus back (MainActivity.onWindowFocusChanged).
-     */
-    private static volatile long panelOpenedAt;
     /** Google TV Home's HOME activities (aliases and their targets), read from the package manager. */
     private final Set<String> stockHomeActivities = new HashSet<>();
     private long lastRefresh, lastReplace;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    /** Home is down and its long press already opened the panel: its key-up does nothing. */
+    private boolean homeHeld;
+    /** The key filter sees no key repeats, so a held Home is timed here. */
+    private final Runnable homeLongPress = () -> {
+        homeHeld = true;
+        openPanel();
+    };
 
     /** True when the service is enabled and SystemUI accepted the request. */
     static boolean openPanel() {
         QuickPanelService s = instance;
         if (s == null) return false;
-        panelOpenedAt = SystemClock.elapsedRealtime();
-        boolean ok = s.performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
+        return s.performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
                 || s.performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS);
-        if (!ok) panelOpenedAt = 0;
-        return ok;
-    }
-
-    /** Home has the focus again: the panel is closed. Ignores the focus bounce of the first second. */
-    static void homeFocused() {
-        long opened = panelOpenedAt;
-        if (opened != 0 && SystemClock.elapsedRealtime() - opened > 1000) panelOpenedAt = 0;
     }
 
     @Override
@@ -87,7 +89,26 @@ public class QuickPanelService extends AccessibilityService {
     @Override
     public boolean onUnbind(Intent intent) {
         instance = null;
+        handler.removeCallbacks(homeLongPress);
         return super.onUnbind(intent);
+    }
+
+    /** Home only; every other key goes on untouched (false) without any work here. */
+    @Override
+    protected boolean onKeyEvent(KeyEvent event) {
+        if (event.getKeyCode() != KeyEvent.KEYCODE_HOME) return false;
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            if (event.getRepeatCount() == 0) {
+                homeHeld = false;
+                handler.removeCallbacks(homeLongPress);
+                handler.postDelayed(homeLongPress, ViewConfiguration.getLongPressTimeout());
+            }
+        } else if (event.getAction() == KeyEvent.ACTION_UP) {
+            handler.removeCallbacks(homeLongPress);
+            if (!homeHeld && !event.isCanceled()) goHome();
+            homeHeld = false;
+        }
+        return true;
     }
 
     @Override
@@ -104,33 +125,39 @@ public class QuickPanelService extends AccessibilityService {
             refreshHomeActivities();
             if (!stockHomeActivities.contains(cls.toString())) return;
         }
-        // While this launcher is the default home, Home and boot already come here: Google TV Home on
-        // screen is then its quick settings panel (held Home) or something the viewer opened, never a
-        // lost home screen. Only step in once Google TV has taken the default home back.
-        if (isDefaultHome()) return;
-        long opened = panelOpenedAt;
-        if (opened != 0 && now - opened < PANEL_MAX_MS) return;
         if (now - lastReplace < DUPLICATE_MS) return;
         lastReplace = now;
-        // As a Home intent, so MainActivity counts it as a Home press (double press, recovery triple);
-        // the extra lets it offer to make this launcher the default home again. No transition: the
-        // shorter Google TV Home is on screen, the less of it flashes.
+        goHome();
+    }
+
+    /**
+     * This launcher, as a Home intent so MainActivity counts it as a Home press (double press, recovery
+     * triple). No transition: when it replaces Google TV Home, the less of that shows the better.
+     */
+    private void goHome() {
         try {
             startActivity(new Intent(Intent.ACTION_MAIN)
                     .addCategory(Intent.CATEGORY_HOME)
                     .setClass(this, MainActivity.class)
-                    .putExtra(MainActivity.EXTRA_HOME_LOST, true)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION),
                     ActivityOptions.makeCustomAnimation(this, 0, 0).toBundle());
         } catch (Exception ignored) {
         }
     }
 
-    /** What the Home button opens now: true when that is this launcher. */
-    private boolean isDefaultHome() {
-        ResolveInfo ri = getPackageManager().resolveActivity(
+    /**
+     * Whether this launcher holds the HOME role (Android 10+), else whether Home resolves to it. Used
+     * only to tell the viewer the setup was lost: on Google TV holding the role does not make the Home
+     * button open this launcher (the replacement above does), but losing it means the setup was undone.
+     */
+    static boolean isDefaultHome(Context ctx) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            RoleManager rm = ctx.getSystemService(RoleManager.class);
+            if (rm != null && rm.isRoleAvailable(RoleManager.ROLE_HOME)) return rm.isRoleHeld(RoleManager.ROLE_HOME);
+        }
+        ResolveInfo ri = ctx.getPackageManager().resolveActivity(
                 new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY);
-        return ri != null && ri.activityInfo != null && getPackageName().equals(ri.activityInfo.packageName);
+        return ri != null && ri.activityInfo != null && ctx.getPackageName().equals(ri.activityInfo.packageName);
     }
 
     @Override

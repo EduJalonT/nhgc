@@ -79,6 +79,24 @@ final class HomePrefs {
         sp.edit().remove("dock").apply();
     }
 
+    // ---- app order -----------------------------------------------------------------------------
+
+    /**
+     * The viewer's own order of the apps outside the dock (set from a tile's menu), or empty for the
+     * automatic one: recent apps first, then alphabetical. Apps it does not list go last, alphabetical.
+     */
+    List<String> appOrder() {
+        return split(sp.getString("order", ""));
+    }
+
+    void setAppOrder(List<String> pkgs) {
+        sp.edit().putString("order", TextUtils.join(",", pkgs)).apply();
+    }
+
+    void resetAppOrder() {
+        sp.edit().remove("order").apply();
+    }
+
     // ---- hidden apps ----------------------------------------------------------------------------
 
     /** Hidden by config.xml plus hidden by the viewer. */
@@ -231,18 +249,18 @@ final class HomePrefs {
         sp.edit().putString("profiles", all.toString()).apply();
     }
 
-    // ---- identity (Eddy TV) ----------------------------------------------------------------------
+    // ---- identity ----------------------------------------------------------------------------------
 
+    /** The owner's name, or "" until one is typed: there is no built-in name. */
     String userName() {
-        String n = sp.getString("name", "").trim();
-        return n.isEmpty() ? ctx.getString(R.string.default_name) : n;
+        return sp.getString("name", "").trim();
     }
 
     void setUserName(String name) {
         sp.edit().putString("name", name.trim()).apply();
     }
 
-    /** True once the owner typed a name (userName() otherwise falls back to the built-in one). */
+    /** True once the owner typed a name. */
     boolean hasUserName() {
         return !sp.getString("name", "").trim().isEmpty();
     }
@@ -295,6 +313,7 @@ final class HomePrefs {
     void resetAll() {
         sp.edit().remove("name").remove("message").remove("accent").remove("light")
                 .remove("columns").remove("wallpaper").remove("background").remove("profiles").remove("dock").remove("hidden")
+                .remove("order").remove("greet_everyone")
                 .putBoolean("light", true).putString("background", "black")
                 .putString(KEY_EXPERIENCE, Experience.PERFORMANCE.key).apply();
     }
@@ -325,7 +344,8 @@ final class HomePrefs {
     }
 
     void clearWeather() {
-        sp.edit().remove("wx_place").remove("wx_lat").remove("wx_lon").remove("wx_text").remove("wx_at").apply();
+        sp.edit().remove("wx_place").remove("wx_lat").remove("wx_lon").remove("wx_text").remove("wx_at")
+                .remove("wx_code").remove("wx_day").apply();
     }
 
     /** Last fetched weather, e.g. "23° NUBLADO", or "" when none. */
@@ -333,12 +353,26 @@ final class HomePrefs {
         return sp.getString("wx_text", "");
     }
 
+    /** The city alone, without the region Weather.find appends ("Guayaquil, Guayas" → "Guayaquil"). */
+    String weatherCity() {
+        String place = weatherPlace();
+        int comma = place.indexOf(',');
+        return (comma < 0 ? place : place.substring(0, comma)).trim();
+    }
+
+    /** Font Awesome icon for the last fetched weather (Weather.icon). */
+    int weatherIcon() {
+        return Weather.icon(sp.getInt("wx_code", 3), sp.getBoolean("wx_day", true));
+    }
+
     boolean weatherStale() {
+        if (!sp.contains("wx_code")) return true;     // cached before the icon was stored
         return System.currentTimeMillis() - sp.getLong("wx_at", 0) > WEATHER_MAX_AGE_MS;
     }
 
-    void setWeatherText(String text) {
-        sp.edit().putString("wx_text", text).putLong("wx_at", System.currentTimeMillis()).apply();
+    void setWeather(Weather.Now now) {
+        sp.edit().putString("wx_text", now.text).putInt("wx_code", now.code).putBoolean("wx_day", now.day)
+                .putLong("wx_at", System.currentTimeMillis()).apply();
     }
 
     private static List<String> split(String s) {

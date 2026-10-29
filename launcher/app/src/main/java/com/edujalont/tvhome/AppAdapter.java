@@ -26,7 +26,8 @@ import java.util.List;
 
 /**
  * App tiles. The first {@link MainActivity#COLUMNS} positions are the pinned dock (favourites, fixed order),
- * then the apps opened most recently, then the rest alphabetically (order set by {@link AppLoader}).
+ * then the viewer's own order if they arranged the apps, otherwise the apps opened most recently, then
+ * the rest alphabetically (order set by {@link AppLoader}).
  */
 public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
@@ -130,7 +131,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         setHasStableIds(true);
     }
 
-    /** Dock first, then recents, then alphabetical; see {@link AppLoader}. */
+    /** Dock first, then the viewer's order or recents, then alphabetical; see {@link AppLoader}. */
     void setEntries(List<Entry> entries) {
         items.clear();
         items.addAll(entries);

@@ -27,6 +27,7 @@ New Home Google Chromecast (NHGC) is a **fork** of [CleanYourTV](https://github.
 | The source panel can be an activity, and the Inputs pill opens it when there is no Live TV app | CleanYourTV PR #411 | @unknown (upstream contributor) | MIT | `launcher/.../MainActivity.java`, `launcher/.../config.xml` |
 | The remote's source button opens the launcher's own Inputs menu | CleanYourTV PRs #342 and #244 | @iyts | MIT | `launcher/.../InputKeyService.java`, `launcher/.../MainActivity.java` |
 | The configurable grid, extracted so it can be tested at 4, 5 and 6 columns | CleanYourTV PR #280 (merged upstream 2026-10-20) | @fuglyab | MIT | `launcher/.../Grid.java`, `launcher/app/src/test/` |
+| Header icons (Chromecast, clock, calendar, weather conditions) | [Font Awesome Free](https://fontawesome.com) 6.7.2, SVGs converted to Android vector drawables | Fonticons, Inc. | Icons: CC BY 4.0 (attribution in each file) | `launcher/app/src/main/res/drawable/fa_*.xml` |
 | BlurHash decoder (28-character hash to a small bitmap) | [woltapp/blurhash](https://github.com/woltapp/blurhash) | @woltapp | MIT | `launcher/.../BlurHash.java`, `scripts/nhgc-blurhash.ps1` |
 
 Code from the other launchers studied (BareLauncher, lightweight_androidtv_launcher, just-a-launcher,

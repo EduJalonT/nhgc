@@ -18,6 +18,14 @@
         <item name="android:singleLine">true</item>
     </style>
 
+    <!-- Middle dot between the items of the brand row. -->
+    <style name="BrandSeparator" parent="BrandText">
+        <item name="android:layout_marginStart">10dp</item>
+        <item name="android:layout_marginEnd">10dp</item>
+        <item name="android:text">·</item>
+        <item name="android:importantForAccessibility">no</item>
+    </style>
+
     <!-- Frosted pill, tvOS style. -->
     <style name="TopButton">
         <item name="android:layout_width">wrap_content</item>

@@ -45,30 +45,55 @@
                     android:orientation="horizontal"
                     android:baselineAligned="true">
 
+                    <!-- Cast Name · clock Time · calendar Date · City – weather icon Weather. Font Awesome
+                         icons (res/drawable/fa_*, CC BY 4.0) tinted like their text; the brand's tint
+                         follows the accent (MainActivity.applyAccent). -->
                     <TextView
                         android:id="@+id/brand"
                         style="@style/BrandText"
+                        android:drawableStart="@drawable/fa_chromecast"
+                        android:drawablePadding="7dp"
                         android:fontFamily="@font/outfit_bold" />
+
+                    <TextView style="@style/BrandSeparator" />
 
                     <TextClock
                         android:id="@+id/clock"
                         style="@style/BrandText"
-                        android:layout_marginStart="16dp"
+                        android:drawableStart="@drawable/fa_clock"
+                        android:drawablePadding="6dp"
+                        android:drawableTint="#E6FFFFFF"
                         android:format12Hour="h:mm a"
                         android:format24Hour="HH:mm"
                         android:textColor="#E6FFFFFF" />
 
+                    <TextView style="@style/BrandSeparator" />
+
                     <TextClock
                         android:id="@+id/date"
                         style="@style/BrandText"
-                        android:layout_marginStart="16dp"
+                        android:drawableStart="@drawable/fa_calendar"
+                        android:drawablePadding="6dp"
+                        android:drawableTint="#8CFFFFFF"
                         android:format12Hour="@string/date_format"
                         android:format24Hour="@string/date_format" />
 
                     <TextView
+                        android:id="@+id/weatherSeparator"
+                        style="@style/BrandSeparator"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/weatherCity"
+                        style="@style/BrandText"
+                        android:layout_marginEnd="8dp"
+                        android:visibility="gone" />
+
+                    <TextView
                         android:id="@+id/weather"
                         style="@style/BrandText"
-                        android:layout_marginStart="16dp"
+                        android:drawablePadding="6dp"
+                        android:drawableTint="#8CFFFFFF"
                         android:visibility="gone" />
                 </LinearLayout>
 
@@ -122,6 +147,19 @@
                     style="@style/TopButton"
                     android:text="@string/inputs"
                     android:drawableStart="@drawable/ic_input"
+                    android:nextFocusDown="@+id/grid" />
+
+                <!-- Icon only: the launcher's own screensaver, the news in full screen (NewsFullActivity).
+                     Google TV lets no app start its own screensaver. Shown only while the news row is on. -->
+                <TextView
+                    android:id="@+id/btnScreensaver"
+                    style="@style/TopButton"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:drawablePadding="0dp"
+                    android:drawableStart="@drawable/ic_moon"
+                    android:contentDescription="@string/news_full"
+                    android:visibility="gone"
                     android:nextFocusDown="@+id/grid" />
 
                 <!-- Icon only: opens the existing Google Assistant (ACTION_ASSIST), no second listener. -->
